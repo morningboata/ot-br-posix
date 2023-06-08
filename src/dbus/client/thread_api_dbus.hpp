@@ -309,18 +309,6 @@ public:
     ClientError SetMeshLocalPrefix(const std::array<uint8_t, OTBR_IP6_PREFIX_SIZE> &aPrefix);
 
     /**
-     * This method sets the legacy prefix of ConnectIP.
-     *
-     * @param[in] aPrefix  The address prefix.
-     *
-     * @retval ERROR_NONE  Successfully performed the dbus function call
-     * @retval ERROR_DBUS  dbus encode/decode error
-     * @retval ...         OpenThread defined error value otherwise
-     *
-     */
-    ClientError SetLegacyUlaPrefix(const std::array<uint8_t, OTBR_IP6_PREFIX_SIZE> &aPrefix);
-
-    /**
      * This method sets the active operational dataset.
      *
      * @param[out] aDataset  The active operational dataset
@@ -512,6 +500,18 @@ public:
      *
      */
     ClientError GetSupportedChannelMask(uint32_t &aChannelMask);
+
+    /**
+     * This method gets the preferred channel mask.
+     *
+     * @param[out] aChannelMask  The channel mask.
+     *
+     * @retval ERROR_NONE  Successfully performed the dbus function call
+     * @retval ERROR_DBUS  dbus encode/decode error
+     * @retval ...         OpenThread defined error value otherwise
+     *
+     */
+    ClientError GetPreferredChannelMask(uint32_t &aChannelMask);
 
     /**
      * This method gets the Thread routing locator
@@ -855,6 +855,19 @@ public:
      *
      */
     ClientError GetNat64ErrorCounters(Nat64ErrorCounters &aCounters);
+
+    /**
+     * This method gets the telemetry data proto serialized byte data.
+     *
+     * @param[out] aTelemetryData  The telemetry data proto serialized
+     *                             byte data (see proto/thread_telemetry.proto)
+     *
+     * @retval ERROR_NONE  Successfully performed the dbus function call
+     * @retval ERROR_DBUS  dbus encode/decode error
+     * @retval ...         OpenThread defined error value otherwise
+     *
+     */
+    ClientError GetTelemetryData(std::vector<uint8_t> &aTelemetryData);
 
 private:
     ClientError CallDBusMethodSync(const std::string &aMethodName);

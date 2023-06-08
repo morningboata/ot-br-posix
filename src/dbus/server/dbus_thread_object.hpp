@@ -114,6 +114,8 @@ private:
     otError SetActiveDatasetTlvsHandler(DBusMessageIter &aIter);
     otError SetFeatureFlagListDataHandler(DBusMessageIter &aIter);
     otError SetRadioRegionHandler(DBusMessageIter &aIter);
+    otError SetDnsUpstreamQueryState(DBusMessageIter &aIter);
+    otError SetNat64Cidr(DBusMessageIter &aIter);
 
     otError GetLinkModeHandler(DBusMessageIter &aIter);
     otError GetDeviceRoleHandler(DBusMessageIter &aIter);
@@ -127,6 +129,7 @@ private:
     otError GetLinkCountersHandler(DBusMessageIter &aIter);
     otError GetIp6CountersHandler(DBusMessageIter &aIter);
     otError GetSupportedChannelMaskHandler(DBusMessageIter &aIter);
+    otError GetPreferredChannelMaskHandler(DBusMessageIter &aIter);
     otError GetRloc16Handler(DBusMessageIter &aIter);
     otError GetExtendedAddressHandler(DBusMessageIter &aIter);
     otError GetRouterIdHandler(DBusMessageIter &aIter);
@@ -158,9 +161,13 @@ private:
     otError GetRadioCoexMetrics(DBusMessageIter &aIter);
     otError GetBorderRoutingCountersHandler(DBusMessageIter &aIter);
     otError GetNat64State(DBusMessageIter &aIter);
+    otError GetNat64Cidr(DBusMessageIter &aIter);
     otError GetNat64Mappings(DBusMessageIter &aIter);
     otError GetNat64ProtocolCounters(DBusMessageIter &aIter);
     otError GetNat64ErrorCounters(DBusMessageIter &aIter);
+    otError GetInfraLinkInfo(DBusMessageIter &aIter);
+    otError GetDnsUpstreamQueryState(DBusMessageIter &aIter);
+    otError GetTelemetryDataHandler(DBusMessageIter &aIter);
 
     void ReplyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otActiveScanResult> &aResult);
     void ReplyEnergyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otEnergyScanResult> &aResult);

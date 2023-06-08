@@ -27,6 +27,7 @@
  */
 
 #include <assert.h>
+#include <net/if.h>
 #include <string.h>
 
 #include <openthread/border_router.h>
@@ -38,10 +39,12 @@
 #include <openthread/nat64.h>
 #include <openthread/ncp.h>
 #include <openthread/netdata.h>
+#include <openthread/openthread-system.h>
 #include <openthread/srp_server.h>
 #include <openthread/thread_ftd.h>
 #include <openthread/platform/radio.h>
 
+#include "common/api_strings.hpp"
 #include "common/byteswap.hpp"
 #include "dbus/common/constants.hpp"
 #include "dbus/server/dbus_agent.hpp"
@@ -49,39 +52,12 @@
 #if OTBR_ENABLE_FEATURE_FLAGS
 #include "proto/feature_flag.pb.h"
 #endif
-
-#if OTBR_ENABLE_LEGACY
-#include <ot-legacy-pairing-ext.h>
+#if OTBR_ENABLE_TELEMETRY_DATA_API
+#include "proto/thread_telemetry.pb.h"
 #endif
 
 using std::placeholders::_1;
 using std::placeholders::_2;
-
-static std::string GetDeviceRoleName(otDeviceRole aRole)
-{
-    std::string roleName;
-
-    switch (aRole)
-    {
-    case OT_DEVICE_ROLE_DISABLED:
-        roleName = OTBR_ROLE_NAME_DISABLED;
-        break;
-    case OT_DEVICE_ROLE_DETACHED:
-        roleName = OTBR_ROLE_NAME_DETACHED;
-        break;
-    case OT_DEVICE_ROLE_CHILD:
-        roleName = OTBR_ROLE_NAME_CHILD;
-        break;
-    case OT_DEVICE_ROLE_ROUTER:
-        roleName = OTBR_ROLE_NAME_ROUTER;
-        break;
-    case OT_DEVICE_ROLE_LEADER:
-        roleName = OTBR_ROLE_NAME_LEADER;
-        break;
-    }
-
-    return roleName;
-}
 
 #if OTBR_ENABLE_NAT64
 static std::string GetNat64StateName(otNat64State aState)
@@ -118,6 +94,47 @@ static uint64_t ConvertOpenThreadUint64(const uint8_t *aValue)
     }
     return val;
 }
+
+#if OTBR_ENABLE_TELEMETRY_DATA_API
+static uint32_t TelemetryNodeTypeFromRoleAndLinkMode(const otDeviceRole &aRole, const otLinkModeConfig &aLinkModeCfg)
+{
+    uint32_t nodeType;
+
+    switch (aRole)
+    {
+    case OT_DEVICE_ROLE_DISABLED:
+        nodeType = threadnetwork::TelemetryData::NODE_TYPE_DISABLED;
+        break;
+    case OT_DEVICE_ROLE_DETACHED:
+        nodeType = threadnetwork::TelemetryData::NODE_TYPE_DETACHED;
+        break;
+    case OT_DEVICE_ROLE_ROUTER:
+        nodeType = threadnetwork::TelemetryData::NODE_TYPE_ROUTER;
+        break;
+    case OT_DEVICE_ROLE_LEADER:
+        nodeType = threadnetwork::TelemetryData::NODE_TYPE_LEADER;
+        break;
+    case OT_DEVICE_ROLE_CHILD:
+        if (!aLinkModeCfg.mRxOnWhenIdle)
+        {
+            nodeType = threadnetwork::TelemetryData::NODE_TYPE_SLEEPY_END;
+        }
+        else if (!aLinkModeCfg.mDeviceType)
+        { // If it's not an FTD, return as minimal end device.
+            nodeType = threadnetwork::TelemetryData::NODE_TYPE_MINIMAL_END;
+        }
+        else
+        {
+            nodeType = threadnetwork::TelemetryData::NODE_TYPE_END;
+        }
+        break;
+    default:
+        nodeType = threadnetwork::TelemetryData::NODE_TYPE_UNSPECIFIED;
+    }
+
+    return nodeType;
+}
+#endif // OTBR_ENABLE_TELEMETRY_DATA_API
 
 namespace otbr {
 namespace DBus {
@@ -185,8 +202,6 @@ otbrError DBusThreadObject::Init(void)
 
     RegisterSetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_MESH_LOCAL_PREFIX,
                                std::bind(&DBusThreadObject::SetMeshLocalPrefixHandler, this, _1));
-    RegisterSetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_LEGACY_ULA_PREFIX,
-                               std::bind(&DBusThreadObject::SetLegacyUlaPrefixHandler, this, _1));
     RegisterSetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_LINK_MODE,
                                std::bind(&DBusThreadObject::SetLinkModeHandler, this, _1));
     RegisterSetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_ACTIVE_DATASET_TLVS,
@@ -195,6 +210,10 @@ otbrError DBusThreadObject::Init(void)
                                std::bind(&DBusThreadObject::SetFeatureFlagListDataHandler, this, _1));
     RegisterSetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_RADIO_REGION,
                                std::bind(&DBusThreadObject::SetRadioRegionHandler, this, _1));
+    RegisterSetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_DNS_UPSTREAM_QUERY_STATE,
+                               std::bind(&DBusThreadObject::SetDnsUpstreamQueryState, this, _1));
+    RegisterSetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_NAT64_CIDR,
+                               std::bind(&DBusThreadObject::SetNat64Cidr, this, _1));
 
     RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_LINK_MODE,
                                std::bind(&DBusThreadObject::GetLinkModeHandler, this, _1));
@@ -221,6 +240,8 @@ otbrError DBusThreadObject::Init(void)
                                std::bind(&DBusThreadObject::GetIp6CountersHandler, this, _1));
     RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_SUPPORTED_CHANNEL_MASK,
                                std::bind(&DBusThreadObject::GetSupportedChannelMaskHandler, this, _1));
+    RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_PREFERRED_CHANNEL_MASK,
+                               std::bind(&DBusThreadObject::GetPreferredChannelMaskHandler, this, _1));
     RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_RLOC16,
                                std::bind(&DBusThreadObject::GetRloc16Handler, this, _1));
     RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_EXTENDED_ADDRESS,
@@ -291,6 +312,14 @@ otbrError DBusThreadObject::Init(void)
                                std::bind(&DBusThreadObject::GetNat64ProtocolCounters, this, _1));
     RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_NAT64_ERROR_COUNTERS,
                                std::bind(&DBusThreadObject::GetNat64ErrorCounters, this, _1));
+    RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_NAT64_CIDR,
+                               std::bind(&DBusThreadObject::GetNat64Cidr, this, _1));
+    RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_INFRA_LINK_INFO,
+                               std::bind(&DBusThreadObject::GetInfraLinkInfo, this, _1));
+    RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_DNS_UPSTREAM_QUERY_STATE,
+                               std::bind(&DBusThreadObject::GetDnsUpstreamQueryState, this, _1));
+    RegisterGetPropertyHandler(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_PROPERTY_TELEMETRY_DATA,
+                               std::bind(&DBusThreadObject::GetTelemetryDataHandler, this, _1));
 
     SuccessOrExit(error = Signal(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_SIGNAL_READY, std::make_tuple()));
 
@@ -332,7 +361,7 @@ void DBusThreadObject::ReplyScanResult(DBusRequest                           &aR
     {
         for (const auto &r : aResult)
         {
-            ActiveScanResult result;
+            ActiveScanResult result = {};
 
             result.mExtAddress = ConvertOpenThreadUint64(r.mExtAddress.m8);
             result.mPanId      = r.mPanId;
@@ -636,24 +665,6 @@ exit:
     return error;
 }
 
-otError DBusThreadObject::SetLegacyUlaPrefixHandler(DBusMessageIter &aIter)
-{
-#if OTBR_ENABLE_LEGACY
-    std::array<uint8_t, OTBR_IP6_PREFIX_SIZE> data;
-    otError                                   error = OT_ERROR_NONE;
-
-    VerifyOrExit(DBusMessageExtractFromVariant(&aIter, data) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
-    otSetLegacyUlaPrefix(&data[0]);
-
-exit:
-    return error;
-#else
-    OTBR_UNUSED_VARIABLE(aIter);
-
-    return OT_ERROR_NOT_IMPLEMENTED;
-#endif // OTBR_ENABLE_LEGACY
-}
-
 otError DBusThreadObject::SetLinkModeHandler(DBusMessageIter &aIter)
 {
     auto             threadHelper = mNcp->GetThreadHelper();
@@ -846,6 +857,18 @@ otError DBusThreadObject::GetSupportedChannelMaskHandler(DBusMessageIter &aIter)
 {
     auto     threadHelper = mNcp->GetThreadHelper();
     uint32_t channelMask  = otLinkGetSupportedChannelMask(threadHelper->GetInstance());
+    otError  error        = OT_ERROR_NONE;
+
+    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, channelMask) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+
+exit:
+    return error;
+}
+
+otError DBusThreadObject::GetPreferredChannelMaskHandler(DBusMessageIter &aIter)
+{
+    auto     threadHelper = mNcp->GetThreadHelper();
+    uint32_t channelMask  = otPlatRadioGetPreferredChannelMask(threadHelper->GetInstance());
     otError  error        = OT_ERROR_NONE;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, channelMask) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -1412,6 +1435,98 @@ exit:
 #endif // OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
 }
 
+otError DBusThreadObject::GetTelemetryDataHandler(DBusMessageIter &aIter)
+{
+#if OTBR_ENABLE_TELEMETRY_DATA_API
+    otError                      error = OT_ERROR_NONE;
+    threadnetwork::TelemetryData telemetryData;
+
+    auto threadHelper = mNcp->GetThreadHelper();
+
+    // Begin of WpanStats section.
+    auto wpanStats = telemetryData.mutable_wpan_stats();
+
+    {
+        otDeviceRole     role  = otThreadGetDeviceRole(threadHelper->GetInstance());
+        otLinkModeConfig otCfg = otThreadGetLinkMode(threadHelper->GetInstance());
+
+        wpanStats->set_node_type(TelemetryNodeTypeFromRoleAndLinkMode(role, otCfg));
+    }
+
+    wpanStats->set_channel(otLinkGetChannel(threadHelper->GetInstance()));
+
+    {
+        uint16_t ccaFailureRate = otLinkGetCcaFailureRate(threadHelper->GetInstance());
+
+        wpanStats->set_mac_cca_fail_rate(static_cast<float>(ccaFailureRate) / 0xffff);
+    }
+
+    {
+        int8_t radioTxPower;
+
+        SuccessOrExit(error = otPlatRadioGetTransmitPower(threadHelper->GetInstance(), &radioTxPower));
+        wpanStats->set_radio_tx_power(radioTxPower);
+    }
+
+    {
+        const otMacCounters *linkCounters = otLinkGetCounters(threadHelper->GetInstance());
+
+        wpanStats->set_phy_rx(linkCounters->mRxTotal);
+        wpanStats->set_phy_tx(linkCounters->mTxTotal);
+        wpanStats->set_mac_unicast_rx(linkCounters->mRxUnicast);
+        wpanStats->set_mac_unicast_tx(linkCounters->mTxUnicast);
+        wpanStats->set_mac_broadcast_rx(linkCounters->mRxBroadcast);
+        wpanStats->set_mac_broadcast_tx(linkCounters->mTxBroadcast);
+        wpanStats->set_mac_tx_ack_req(linkCounters->mTxAckRequested);
+        wpanStats->set_mac_tx_no_ack_req(linkCounters->mTxNoAckRequested);
+        wpanStats->set_mac_tx_acked(linkCounters->mTxAcked);
+        wpanStats->set_mac_tx_data(linkCounters->mTxData);
+        wpanStats->set_mac_tx_data_poll(linkCounters->mTxDataPoll);
+        wpanStats->set_mac_tx_beacon(linkCounters->mTxBeacon);
+        wpanStats->set_mac_tx_beacon_req(linkCounters->mTxBeaconRequest);
+        wpanStats->set_mac_tx_other_pkt(linkCounters->mTxOther);
+        wpanStats->set_mac_tx_retry(linkCounters->mTxRetry);
+        wpanStats->set_mac_rx_data(linkCounters->mRxData);
+        wpanStats->set_mac_rx_data_poll(linkCounters->mRxDataPoll);
+        wpanStats->set_mac_rx_beacon(linkCounters->mRxBeacon);
+        wpanStats->set_mac_rx_beacon_req(linkCounters->mRxBeaconRequest);
+        wpanStats->set_mac_rx_other_pkt(linkCounters->mRxOther);
+        wpanStats->set_mac_rx_filter_whitelist(linkCounters->mRxAddressFiltered);
+        wpanStats->set_mac_rx_filter_dest_addr(linkCounters->mRxDestAddrFiltered);
+        wpanStats->set_mac_tx_fail_cca(linkCounters->mTxErrCca);
+        wpanStats->set_mac_rx_fail_decrypt(linkCounters->mRxErrSec);
+        wpanStats->set_mac_rx_fail_no_frame(linkCounters->mRxErrNoFrame);
+        wpanStats->set_mac_rx_fail_unknown_neighbor(linkCounters->mRxErrUnknownNeighbor);
+        wpanStats->set_mac_rx_fail_invalid_src_addr(linkCounters->mRxErrInvalidSrcAddr);
+        wpanStats->set_mac_rx_fail_fcs(linkCounters->mRxErrFcs);
+        wpanStats->set_mac_rx_fail_other(linkCounters->mRxErrOther);
+    }
+
+    {
+        const otIpCounters *ipCounters = otThreadGetIp6Counters(threadHelper->GetInstance());
+
+        wpanStats->set_ip_tx_success(ipCounters->mTxSuccess);
+        wpanStats->set_ip_rx_success(ipCounters->mRxSuccess);
+        wpanStats->set_ip_tx_failure(ipCounters->mTxFailure);
+        wpanStats->set_ip_rx_failure(ipCounters->mRxFailure);
+    }
+    // End of WpanStats section.
+
+    {
+        const std::string    telemetryDataBytes = telemetryData.SerializeAsString();
+        std::vector<uint8_t> data(telemetryDataBytes.begin(), telemetryDataBytes.end());
+
+        VerifyOrExit(DBusMessageEncodeToVariant(&aIter, data) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    }
+
+exit:
+    return error;
+#else
+    OTBR_UNUSED_VARIABLE(aIter);
+    return OT_ERROR_NOT_IMPLEMENTED;
+#endif
+}
+
 void DBusThreadObject::GetPropertiesHandler(DBusRequest &aRequest)
 {
     UniqueDBusMessage        reply(dbus_message_new_method_return(aRequest.GetMessage()));
@@ -1789,6 +1904,36 @@ exit:
     return error;
 }
 
+otError DBusThreadObject::GetNat64Cidr(DBusMessageIter &aIter)
+{
+    otError error = OT_ERROR_NONE;
+
+    otIp4Cidr cidr;
+    char      cidrString[OT_IP4_CIDR_STRING_SIZE];
+
+    otNat64GetCidr(mNcp->GetThreadHelper()->GetInstance(), &cidr);
+    otIp4CidrToString(&cidr, cidrString, sizeof(cidrString));
+
+    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, std::string(cidrString)) == OTBR_ERROR_NONE,
+                 error = OT_ERROR_INVALID_ARGS);
+
+exit:
+    return error;
+}
+
+otError DBusThreadObject::SetNat64Cidr(DBusMessageIter &aIter)
+{
+    otError     error = OT_ERROR_NONE;
+    std::string cidrString;
+    otIp4Cidr   cidr;
+
+    VerifyOrExit(DBusMessageExtractFromVariant(&aIter, cidrString) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    otIp4CidrFromString(cidrString.c_str(), &cidr);
+    SuccessOrExit(error = otNat64SetIp4Cidr(mNcp->GetThreadHelper()->GetInstance(), &cidr));
+
+exit:
+    return error;
+}
 #else  // OTBR_ENABLE_NAT64
 void DBusThreadObject::SetNat64Enabled(DBusRequest &aRequest)
 {
@@ -1819,7 +1964,85 @@ otError DBusThreadObject::GetNat64ErrorCounters(DBusMessageIter &aIter)
     OTBR_UNUSED_VARIABLE(aIter);
     return OT_ERROR_NOT_IMPLEMENTED;
 }
+
+otError DBusThreadObject::GetNat64Cidr(DBusMessageIter &aIter)
+{
+    OTBR_UNUSED_VARIABLE(aIter);
+    return OT_ERROR_NOT_IMPLEMENTED;
+}
+
+otError DBusThreadObject::SetNat64Cidr(DBusMessageIter &aIter)
+{
+    OTBR_UNUSED_VARIABLE(aIter);
+    return OT_ERROR_NOT_IMPLEMENTED;
+}
 #endif // OTBR_ENABLE_NAT64
+
+otError DBusThreadObject::GetInfraLinkInfo(DBusMessageIter &aIter)
+{
+#if OTBR_ENABLE_BORDER_ROUTING
+    otError                        error = OT_ERROR_NONE;
+    otSysInfraNetIfAddressCounters addressCounters;
+    uint32_t                       ifrFlags;
+    InfraLinkInfo                  infraLinkInfo;
+
+    ifrFlags = otSysGetInfraNetifFlags();
+    otSysCountInfraNetifAddresses(&addressCounters);
+
+    infraLinkInfo.mName                   = otSysGetInfraNetifName();
+    infraLinkInfo.mIsUp                   = (ifrFlags & IFF_UP) != 0;
+    infraLinkInfo.mIsRunning              = (ifrFlags & IFF_RUNNING) != 0;
+    infraLinkInfo.mIsMulticast            = (ifrFlags & IFF_MULTICAST) != 0;
+    infraLinkInfo.mLinkLocalAddresses     = addressCounters.mLinkLocalAddresses;
+    infraLinkInfo.mUniqueLocalAddresses   = addressCounters.mUniqueLocalAddresses;
+    infraLinkInfo.mGlobalUnicastAddresses = addressCounters.mGlobalUnicastAddresses;
+
+    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, infraLinkInfo) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+
+exit:
+    return error;
+#else
+    OTBR_UNUSED_VARIABLE(aIter);
+
+    return OT_ERROR_NOT_IMPLEMENTED;
+#endif
+}
+
+otError DBusThreadObject::SetDnsUpstreamQueryState(DBusMessageIter &aIter)
+{
+#if OTBR_ENABLE_DNS_UPSTREAM_QUERY
+    otError error = OT_ERROR_NONE;
+    bool    enable;
+
+    VerifyOrExit(DBusMessageExtractFromVariant(&aIter, enable) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    otDnssdUpstreamQuerySetEnabled(mNcp->GetThreadHelper()->GetInstance(), enable);
+
+exit:
+    return error;
+#else
+    OTBR_UNUSED_VARIABLE(aIter);
+
+    return OT_ERROR_NOT_IMPLEMENTED;
+#endif
+}
+
+otError DBusThreadObject::GetDnsUpstreamQueryState(DBusMessageIter &aIter)
+{
+#if OTBR_ENABLE_DNS_UPSTREAM_QUERY
+    otError error = OT_ERROR_NONE;
+
+    VerifyOrExit(DBusMessageEncodeToVariant(
+                     &aIter, otDnssdUpstreamQueryIsEnabled(mNcp->GetThreadHelper()->GetInstance())) == OTBR_ERROR_NONE,
+                 error = OT_ERROR_INVALID_ARGS);
+
+exit:
+    return error;
+#else
+    OTBR_UNUSED_VARIABLE(aIter);
+
+    return OT_ERROR_NOT_IMPLEMENTED;
+#endif
+}
 
 static_assert(OTBR_SRP_SERVER_STATE_DISABLED == static_cast<uint8_t>(OT_SRP_SERVER_STATE_DISABLED),
               "OTBR_SRP_SERVER_STATE_DISABLED value is incorrect");

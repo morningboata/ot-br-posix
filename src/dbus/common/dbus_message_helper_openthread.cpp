@@ -54,6 +54,10 @@ otbrError DBusMessageExtract(DBusMessageIter *aIter, ActiveScanResult &aScanResu
     DBusMessageIter sub;
     otbrError       error = OTBR_ERROR_NONE;
 
+    // Local variable to help convert an RSSI value.
+    // Dbus doesn't have the concept of a signed byte
+    int16_t rssi = 0;
+
     VerifyOrExit(dbus_message_iter_get_arg_type(aIter) == DBUS_TYPE_STRUCT, error = OTBR_ERROR_DBUS);
     dbus_message_iter_recurse(aIter, &sub);
 
@@ -64,11 +68,15 @@ otbrError DBusMessageExtract(DBusMessageIter *aIter, ActiveScanResult &aScanResu
     SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mPanId));
     SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mJoinerUdpPort));
     SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mChannel));
-    SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mRssi));
+    SuccessOrExit(error = DBusMessageExtract<int16_t>(&sub, rssi));
     SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mLqi));
     SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mVersion));
     SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mIsNative));
     SuccessOrExit(error = DBusMessageExtract(&sub, aScanResult.mDiscover));
+
+    // Double check the value is within int8 bounds and cast back
+    VerifyOrExit((rssi <= INT8_MAX) && (rssi >= INT8_MIN), error = OTBR_ERROR_PARSE);
+    aScanResult.mRssi = static_cast<int8_t>(rssi);
 
     dbus_message_iter_next(aIter);
     error = OTBR_ERROR_NONE;
@@ -89,7 +97,10 @@ otbrError DBusMessageEncode(DBusMessageIter *aIter, const ActiveScanResult &aSca
     SuccessOrExit(error = DBusMessageEncode(&sub, aScanResult.mPanId));
     SuccessOrExit(error = DBusMessageEncode(&sub, aScanResult.mJoinerUdpPort));
     SuccessOrExit(error = DBusMessageEncode(&sub, aScanResult.mChannel));
-    SuccessOrExit(error = DBusMessageEncode(&sub, aScanResult.mRssi));
+
+    // Dbus doesn't have a signed byte, cast into an int16
+    SuccessOrExit(error = DBusMessageEncode(&sub, static_cast<int16_t>(aScanResult.mRssi)));
+
     SuccessOrExit(error = DBusMessageEncode(&sub, aScanResult.mLqi));
     SuccessOrExit(error = DBusMessageEncode(&sub, aScanResult.mVersion));
     SuccessOrExit(error = DBusMessageEncode(&sub, aScanResult.mIsNative));
@@ -1149,6 +1160,46 @@ otbrError DBusMessageExtract(DBusMessageIter *aIter, Nat64ErrorCounters &aCounte
     SuccessOrExit(error = DBusMessageExtract(&sub, aCounters.mIllegalPacket));
     SuccessOrExit(error = DBusMessageExtract(&sub, aCounters.mUnsupportedProto));
     SuccessOrExit(error = DBusMessageExtract(&sub, aCounters.mNoMapping));
+
+    dbus_message_iter_next(aIter);
+exit:
+    return error;
+}
+
+otbrError DBusMessageEncode(DBusMessageIter *aIter, const InfraLinkInfo &aInfraLinkInfo)
+{
+    DBusMessageIter sub;
+    otbrError       error = OTBR_ERROR_NONE;
+
+    VerifyOrExit(dbus_message_iter_open_container(aIter, DBUS_TYPE_STRUCT, nullptr, &sub), error = OTBR_ERROR_DBUS);
+
+    SuccessOrExit(error = DBusMessageEncode(&sub, aInfraLinkInfo.mName));
+    SuccessOrExit(error = DBusMessageEncode(&sub, aInfraLinkInfo.mIsUp));
+    SuccessOrExit(error = DBusMessageEncode(&sub, aInfraLinkInfo.mIsRunning));
+    SuccessOrExit(error = DBusMessageEncode(&sub, aInfraLinkInfo.mIsMulticast));
+    SuccessOrExit(error = DBusMessageEncode(&sub, aInfraLinkInfo.mLinkLocalAddresses));
+    SuccessOrExit(error = DBusMessageEncode(&sub, aInfraLinkInfo.mUniqueLocalAddresses));
+    SuccessOrExit(error = DBusMessageEncode(&sub, aInfraLinkInfo.mGlobalUnicastAddresses));
+
+    VerifyOrExit(dbus_message_iter_close_container(aIter, &sub), error = OTBR_ERROR_DBUS);
+exit:
+    return error;
+}
+
+otbrError DBusMessageExtract(DBusMessageIter *aIter, InfraLinkInfo &aInfraLinkInfo)
+{
+    DBusMessageIter sub;
+    otbrError       error = OTBR_ERROR_NONE;
+
+    dbus_message_iter_recurse(aIter, &sub);
+
+    SuccessOrExit(error = DBusMessageExtract(&sub, aInfraLinkInfo.mName));
+    SuccessOrExit(error = DBusMessageExtract(&sub, aInfraLinkInfo.mIsUp));
+    SuccessOrExit(error = DBusMessageExtract(&sub, aInfraLinkInfo.mIsRunning));
+    SuccessOrExit(error = DBusMessageExtract(&sub, aInfraLinkInfo.mIsMulticast));
+    SuccessOrExit(error = DBusMessageExtract(&sub, aInfraLinkInfo.mLinkLocalAddresses));
+    SuccessOrExit(error = DBusMessageExtract(&sub, aInfraLinkInfo.mUniqueLocalAddresses));
+    SuccessOrExit(error = DBusMessageExtract(&sub, aInfraLinkInfo.mGlobalUnicastAddresses));
 
     dbus_message_iter_next(aIter);
 exit:

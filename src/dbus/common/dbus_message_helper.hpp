@@ -111,6 +111,8 @@ otbrError DBusMessageEncode(DBusMessageIter *aIter, const Nat64AddressMapping &a
 otbrError DBusMessageExtract(DBusMessageIter *aIter, Nat64AddressMapping &aMapping);
 otbrError DBusMessageEncode(DBusMessageIter *aIter, const Nat64ErrorCounters &aCounters);
 otbrError DBusMessageExtract(DBusMessageIter *aIter, Nat64ErrorCounters &aCounters);
+otbrError DBusMessageEncode(DBusMessageIter *aIter, const InfraLinkInfo &aInfraLinkInfo);
+otbrError DBusMessageExtract(DBusMessageIter *aIter, InfraLinkInfo &aInfraLinkInfo);
 
 template <typename T> struct DBusTypeTrait;
 
@@ -210,8 +212,8 @@ template <> struct DBusTypeTrait<ChildInfo>
 template <> struct DBusTypeTrait<ActiveScanResult>
 {
     // struct of { uint64, string, uint64, array<uint8>, uint16, uint16, uint8,
-    //             uint8, uint8, uint8, bool, bool }
-    static constexpr const char *TYPE_AS_STRING = "(tstayqqyyyybb)";
+    //             int16, uint8, uint8, bool, bool }
+    static constexpr const char *TYPE_AS_STRING = "(tstayqqynyybb)";
 };
 
 template <> struct DBusTypeTrait<EnergyScanResult>
@@ -378,6 +380,12 @@ template <> struct DBusTypeTrait<Nat64ErrorCounters>
     static constexpr const char *TYPE_AS_STRING = "((tt)(tt)(tt)(tt))";
 };
 
+template <> struct DBusTypeTrait<InfraLinkInfo>
+{
+    // struct of { string, bool, bool, bool, uint32, uint32, uint32 }
+    static constexpr const char *TYPE_AS_STRING = "(sbbbuuu)";
+};
+
 template <> struct DBusTypeTrait<int8_t>
 {
     static constexpr int         TYPE           = DBUS_TYPE_BYTE;
@@ -430,6 +438,12 @@ template <> struct DBusTypeTrait<std::string>
 {
     static constexpr int         TYPE           = DBUS_TYPE_STRING;
     static constexpr const char *TYPE_AS_STRING = DBUS_TYPE_STRING_AS_STRING;
+};
+
+template <> struct DBusTypeTrait<bool>
+{
+    static constexpr int         TYPE           = DBUS_TYPE_BOOLEAN;
+    static constexpr const char *TYPE_AS_STRING = DBUS_TYPE_BOOLEAN_AS_STRING;
 };
 
 otbrError DBusMessageEncode(DBusMessageIter *aIter, bool aValue);

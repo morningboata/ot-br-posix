@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  Copyright (c) 2022, The OpenThread Authors.
+#  Copyright (c) 2023, The OpenThread Authors.
 #  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
@@ -27,14 +27,24 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-set -euxo pipefail
+#
+# This script tests publishing single service.
+#
 
-EXIT_CODE_SHOULD_RESTART=7
-readonly EXIT_CODE_SHOULD_RESTART
+# shellcheck source=tests/mdns/test_init
+. "$(dirname "$0")/test_init"
 
-while
-    "$@"
-    (($? == EXIT_CODE_SHOULD_RESTART))
-do
-    :
-done
+main()
+{
+    start_publisher se
+
+    HOST_NAME="$(hostname -s)"
+
+    if [[ ${OTBR_MDNS} == 'mDNSResponder' ]]; then
+        dns_sd_check "${HOST_NAME}" _meshcop._udp 'nn=cool xp=ABCDEFGH tv=1.1.1 xa=ABCDEFGH'
+    else
+        avahi_check "${HOST_NAME}"';_meshcop._udp;.\+"xa=ABCDEFGH.\+"tv=1\.1\.1.\+"xp=ABCDEFGH.\+"nn=cool"'
+    fi
+}
+
+main "$@"

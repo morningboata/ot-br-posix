@@ -65,6 +65,15 @@ function parse_args()
     done
 }
 
+function shutdown()
+{
+    echo "Shutting down"
+    /app/script/server shutdown
+    exit 0
+}
+
+trap shutdown TERM INT
+
 parse_args "$@"
 
 [ -n "$RADIO_URL" ] || RADIO_URL="spinel+hdlc+uart:///dev/ttyUSB0"
@@ -92,4 +101,9 @@ echo "OTBR_WEB_OPTS=\"-I $TUN_INTERFACE_NAME -d7 -p 80\"" >/etc/default/otbr-web
 
 /app/script/server
 
-tail -f /var/log/syslog
+while [[ ! -f /var/log/syslog ]]; do
+    sleep 1
+done
+
+tail -f /var/log/syslog &
+wait $!

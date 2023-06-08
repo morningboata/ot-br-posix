@@ -36,9 +36,13 @@
 
 #include <unordered_map>
 
+#include <openthread/border_agent.h>
 #include <openthread/border_router.h>
 
+#include "common/api_strings.hpp"
 #include "ncp/ncp_openthread.hpp"
+#include "openthread/dataset.h"
+#include "openthread/dataset_ftd.h"
 #include "rest/json.hpp"
 #include "rest/request.hpp"
 #include "rest/response.hpp"
@@ -102,9 +106,20 @@ public:
     void ErrorHandler(Response &aResponse, HttpStatusCode aErrorCode) const;
 
 private:
+    /**
+     * This enumeration represents the Dataset type (active or pending).
+     *
+     */
+    enum class DatasetType : uint8_t
+    {
+        kActive,  ///< Active Dataset
+        kPending, ///< Pending Dataset
+    };
+
     typedef void (Resource::*ResourceHandler)(const Request &aRequest, Response &aResponse) const;
     typedef void (Resource::*ResourceCallbackHandler)(const Request &aRequest, Response &aResponse);
     void NodeInfo(const Request &aRequest, Response &aResponse) const;
+    void BaId(const Request &aRequest, Response &aResponse) const;
     void ExtendedAddr(const Request &aRequest, Response &aResponse) const;
     void State(const Request &aRequest, Response &aResponse) const;
     void NetworkName(const Request &aRequest, Response &aResponse) const;
@@ -113,21 +128,25 @@ private:
     void Rloc16(const Request &aRequest, Response &aResponse) const;
     void ExtendedPanId(const Request &aRequest, Response &aResponse) const;
     void Rloc(const Request &aRequest, Response &aResponse) const;
-    void ActiveDatasetTlvs(const Request &aRequest, Response &aResponse) const;
+    void Dataset(DatasetType aDatasetType, const Request &aRequest, Response &aResponse) const;
+    void DatasetActive(const Request &aRequest, Response &aResponse) const;
+    void DatasetPending(const Request &aRequest, Response &aResponse) const;
     void Diagnostic(const Request &aRequest, Response &aResponse) const;
     void HandleDiagnosticCallback(const Request &aRequest, Response &aResponse);
 
     void GetNodeInfo(Response &aResponse) const;
+    void GetDataBaId(Response &aResponse) const;
     void GetDataExtendedAddr(Response &aResponse) const;
     void GetDataState(Response &aResponse) const;
+    void SetDataState(const Request &aRequest, Response &aResponse) const;
     void GetDataNetworkName(Response &aResponse) const;
     void GetDataLeaderData(Response &aResponse) const;
     void GetDataNumOfRoute(Response &aResponse) const;
     void GetDataRloc16(Response &aResponse) const;
     void GetDataExtendedPanId(Response &aResponse) const;
     void GetDataRloc(Response &aResponse) const;
-    void GetActiveDatasetTlvs(Response &aResponse) const;
-    void SetActiveDatasetTlvs(const Request &aRequest, Response &aResponse) const;
+    void GetDataset(DatasetType aDatasetType, const Request &aRequest, Response &aResponse) const;
+    void SetDataset(DatasetType aDatasetType, const Request &aRequest, Response &aResponse) const;
 
     void DeleteOutDatedDiagnostic(void);
     void UpdateDiag(std::string aKey, std::vector<otNetworkDiagTlv> &aDiag);

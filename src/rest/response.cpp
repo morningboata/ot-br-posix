@@ -30,12 +30,12 @@
 
 #include <stdio.h>
 
-#define OT_REST_RESPONSE_CONTENT_TYPE_JSON "application/json"
 #define OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_ORIGIN "*"
 #define OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_HEADERS                                                              \
     "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, " \
     "Access-Control-Request-Headers"
-#define OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_METHOD "GET"
+#define OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_METHOD "GET, OPTIONS, PUT"
+#define OT_REST_RESPONSE_CONNECTION "close"
 
 namespace otbr {
 namespace rest {
@@ -45,13 +45,14 @@ Response::Response(void)
     , mComplete(false)
 {
     // HTTP protocol
-    mProtocol = "HTTP/1.1 ";
+    mProtocol = "HTTP/1.1";
 
     // Pre-defined headers
-    mHeaders["Content-Type"]                 = OT_REST_RESPONSE_CONTENT_TYPE_JSON;
+    mHeaders[OT_REST_CONTENT_TYPE_HEADER]    = OT_REST_CONTENT_TYPE_JSON;
     mHeaders["Access-Control-Allow-Origin"]  = OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_ORIGIN;
     mHeaders["Access-Control-Allow-Methods"] = OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_METHOD;
     mHeaders["Access-Control-Allow-Headers"] = OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_HEADERS;
+    mHeaders["Connection"]                   = OT_REST_RESPONSE_CONNECTION;
 }
 
 void Response::SetComplete()
@@ -77,6 +78,11 @@ bool Response::IsComplete()
 void Response::SetResponsCode(std::string &aCode)
 {
     mCode = aCode;
+}
+
+void Response::SetContentType(const std::string &aContentType)
+{
+    mHeaders[OT_REST_CONTENT_TYPE_HEADER] = aContentType;
 }
 
 void Response::SetCallback(void)

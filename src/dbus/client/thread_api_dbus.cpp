@@ -29,6 +29,7 @@
 #include <map>
 #include <string.h>
 
+#include "common/api_strings.hpp"
 #include "common/code_utils.hpp"
 #include "dbus/client/client_error.hpp"
 #include "dbus/client/thread_api_dbus.hpp"
@@ -467,11 +468,6 @@ ClientError ThreadApiDBus::SetMeshLocalPrefix(const std::array<uint8_t, OTBR_IP6
     return SetProperty(OTBR_DBUS_PROPERTY_MESH_LOCAL_PREFIX, aPrefix);
 }
 
-ClientError ThreadApiDBus::SetLegacyUlaPrefix(const std::array<uint8_t, OTBR_IP6_PREFIX_SIZE> &aPrefix)
-{
-    return SetProperty(OTBR_DBUS_PROPERTY_LEGACY_ULA_PREFIX, aPrefix);
-}
-
 ClientError ThreadApiDBus::SetActiveDatasetTlvs(const std::vector<uint8_t> &aDataset)
 {
     return SetProperty(OTBR_DBUS_PROPERTY_ACTIVE_DATASET_TLVS, aDataset);
@@ -551,6 +547,11 @@ ClientError ThreadApiDBus::GetIp6Counters(IpCounters &aCounters)
 ClientError ThreadApiDBus::GetSupportedChannelMask(uint32_t &aChannelMask)
 {
     return GetProperty(OTBR_DBUS_PROPERTY_SUPPORTED_CHANNEL_MASK, aChannelMask);
+}
+
+ClientError ThreadApiDBus::GetPreferredChannelMask(uint32_t &aChannelMask)
+{
+    return GetProperty(OTBR_DBUS_PROPERTY_PREFERRED_CHANNEL_MASK, aChannelMask);
 }
 
 ClientError ThreadApiDBus::GetRloc16(uint16_t &aRloc16)
@@ -684,6 +685,11 @@ ClientError ThreadApiDBus::GetDnssdCounters(DnssdCounters &aDnssdCounters)
     return GetProperty(OTBR_DBUS_PROPERTY_DNSSD_COUNTERS, aDnssdCounters);
 }
 #endif
+
+ClientError ThreadApiDBus::GetTelemetryData(std::vector<uint8_t> &aTelemetryData)
+{
+    return GetProperty(OTBR_DBUS_PROPERTY_TELEMETRY_DATA, aTelemetryData);
+}
 
 std::string ThreadApiDBus::GetInterfaceName(void)
 {
