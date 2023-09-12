@@ -22,7 +22,7 @@
  <tr style="height: 56px;">
   <td id="projectalign" style="padding-left: 0.5em;">
    <div id="projectname">openthread-br
-   &#160;<span id="projectnumber">0.3.0-358e809</span>
+   &#160;<span id="projectnumber">0.3.0-d6392d0</span>
    </div>
   </td>
  </tr>
@@ -108,20 +108,23 @@ $(function() {
 <div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="keyword">namespace </span>otbr {</div>
 <div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;<span class="keyword">namespace </span>vendor {</div>
 <div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160; </div>
-<div class="line"><a name="l00044"></a><span class="lineno"><a class="line" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html">   44</a></span>&#160;<span class="keyword">class </span><a class="code" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html">VendorServer</a></div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;{</div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;<span class="keyword">public</span>:</div>
-<div class="line"><a name="l00053"></a><span class="lineno"><a class="line" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a1dbba6ac5ab4bd91d949f8c92138db6c">   53</a></span>&#160;    <a class="code" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a1dbba6ac5ab4bd91d949f8c92138db6c">VendorServer</a>(<a class="code" href="../../db/d17/classotbr_1_1Ncp_1_1ControllerOpenThread.html">otbr::Ncp::ControllerOpenThread</a> &amp;aNcp);</div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160; </div>
-<div class="line"><a name="l00059"></a><span class="lineno"><a class="line" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a540f6e39acd821c576d5b86e58434c8c">   59</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a540f6e39acd821c576d5b86e58434c8c">Init</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;};</div>
-<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;} <span class="comment">// namespace vendor</span></div>
-<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;} <span class="comment">// namespace otbr</span></div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;<span class="preprocessor">#endif </span><span class="comment">// OTBR_AGENT_VENDOR_HPP_</span></div>
+<div class="line"><a name="l00047"></a><span class="lineno"><a class="line" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html">   47</a></span>&#160;<span class="keyword">class </span><a class="code" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html">VendorServer</a></div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;{</div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;<span class="keyword">public</span>:</div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    <span class="keyword">virtual</span> ~<a class="code" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html">VendorServer</a>(<span class="keywordtype">void</span>) = <span class="keywordflow">default</span>;</div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160; </div>
+<div class="line"><a name="l00061"></a><span class="lineno"><a class="line" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a22d930cbff3cb268cc0fe61cbe33ea1e">   61</a></span>&#160;    <span class="keyword">static</span> std::shared_ptr&lt;VendorServer&gt; <a class="code" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a22d930cbff3cb268cc0fe61cbe33ea1e">newInstance</a>(<a class="code" href="../../db/d17/classotbr_1_1Ncp_1_1ControllerOpenThread.html">otbr::Ncp::ControllerOpenThread</a> &amp;aNcp);</div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160; </div>
+<div class="line"><a name="l00069"></a><span class="lineno"><a class="line" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a1b39e4dc4ebaa00e91696fb7eb78160a">   69</a></span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> <a class="code" href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a1b39e4dc4ebaa00e91696fb7eb78160a">Init</a>(<span class="keywordtype">void</span>) = 0;</div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;};</div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160; </div>
+<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;} <span class="comment">// namespace vendor</span></div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;} <span class="comment">// namespace otbr</span></div>
+<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;<span class="preprocessor">#endif </span><span class="comment">// OTBR_AGENT_VENDOR_HPP_</span></div>
 <div class="ttc" id="aclassotbr_1_1Ncp_1_1ControllerOpenThread_html"><div class="ttname"><a href="../../db/d17/classotbr_1_1Ncp_1_1ControllerOpenThread.html">otbr::Ncp::ControllerOpenThread</a></div><div class="ttdef"><b>Definition:</b> ncp_openthread.hpp:67</div></div>
-<div class="ttc" id="aclassotbr_1_1vendor_1_1VendorServer_html"><div class="ttname"><a href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html">otbr::vendor::VendorServer</a></div><div class="ttdef"><b>Definition:</b> vendor.hpp:45</div></div>
-<div class="ttc" id="aclassotbr_1_1vendor_1_1VendorServer_html_a1dbba6ac5ab4bd91d949f8c92138db6c"><div class="ttname"><a href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a1dbba6ac5ab4bd91d949f8c92138db6c">otbr::vendor::VendorServer::VendorServer</a></div><div class="ttdeci">VendorServer(otbr::Ncp::ControllerOpenThread &amp;aNcp)</div></div>
-<div class="ttc" id="aclassotbr_1_1vendor_1_1VendorServer_html_a540f6e39acd821c576d5b86e58434c8c"><div class="ttname"><a href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a540f6e39acd821c576d5b86e58434c8c">otbr::vendor::VendorServer::Init</a></div><div class="ttdeci">void Init(void)</div></div>
+<div class="ttc" id="aclassotbr_1_1vendor_1_1VendorServer_html"><div class="ttname"><a href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html">otbr::vendor::VendorServer</a></div><div class="ttdef"><b>Definition:</b> vendor.hpp:48</div></div>
+<div class="ttc" id="aclassotbr_1_1vendor_1_1VendorServer_html_a1b39e4dc4ebaa00e91696fb7eb78160a"><div class="ttname"><a href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a1b39e4dc4ebaa00e91696fb7eb78160a">otbr::vendor::VendorServer::Init</a></div><div class="ttdeci">virtual void Init(void)=0</div></div>
+<div class="ttc" id="aclassotbr_1_1vendor_1_1VendorServer_html_a22d930cbff3cb268cc0fe61cbe33ea1e"><div class="ttname"><a href="../../d5/d8a/classotbr_1_1vendor_1_1VendorServer.html#a22d930cbff3cb268cc0fe61cbe33ea1e">otbr::vendor::VendorServer::newInstance</a></div><div class="ttdeci">static std::shared_ptr&lt; VendorServer &gt; newInstance(otbr::Ncp::ControllerOpenThread &amp;aNcp)</div></div>
 <div class="ttc" id="aconfig_8h_html"><div class="ttname"><a href="../../db/d16/config_8h.html">config.h</a></div></div>
 <div class="ttc" id="ancp__openthread_8hpp_html"><div class="ttname"><a href="../../d9/d9a/ncp__openthread_8hpp.html">ncp_openthread.hpp</a></div></div>
 </div><!-- fragment --></div><!-- contents -->
