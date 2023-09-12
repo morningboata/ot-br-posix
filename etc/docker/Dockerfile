@@ -88,6 +88,7 @@ RUN apt-get update \
   && ln -fs /usr/share/zoneinfo/UTC /etc/localtime
 
 COPY ./script /app/script
+COPY ./third_party/mDNSResponder /app/third_party/mDNSResponder
 WORKDIR /app
 
 RUN ./script/bootstrap
@@ -106,6 +107,7 @@ RUN ([ "${DNS64}" = "0" ] || chmod 644 /etc/bind/named.conf.options) \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false $OTBR_BUILD_DEPS  \
     && ([ "${RELEASE}" = 1 ] ||  apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false "$OTBR_NORELEASE_DEPS";) \
     && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
   ))
 
 ENTRYPOINT ["/app/etc/docker/docker_entrypoint.sh"]

@@ -52,23 +52,21 @@ void Publisher::PublishService(const std::string &aHostName,
                                const std::string &aType,
                                const SubTypeList &aSubTypeList,
                                uint16_t           aPort,
-                               const TxtList     &aTxtList,
+                               const TxtData     &aTxtData,
                                ResultCallback   &&aCallback)
 {
     otbrError error;
 
     mServiceRegistrationBeginTime[std::make_pair(aName, aType)] = Clock::now();
 
-    error = PublishServiceImpl(aHostName, aName, aType, aSubTypeList, aPort, aTxtList, std::move(aCallback));
+    error = PublishServiceImpl(aHostName, aName, aType, aSubTypeList, aPort, aTxtData, std::move(aCallback));
     if (error != OTBR_ERROR_NONE)
     {
         UpdateMdnsResponseCounters(mTelemetryInfo.mServiceRegistrations, error);
     }
 }
 
-void Publisher::PublishHost(const std::string             &aName,
-                            const std::vector<Ip6Address> &aAddresses,
-                            ResultCallback               &&aCallback)
+void Publisher::PublishHost(const std::string &aName, const AddressList &aAddresses, ResultCallback &&aCallback)
 {
     otbrError error;
 
@@ -99,18 +97,32 @@ otbrError Publisher::EncodeTxtData(const TxtList &aTxtList, std::vector<uint8_t>
 {
     otbrError error = OTBR_ERROR_NONE;
 
-    for (const auto &txtEntry : aTxtList)
+    aTxtData.clear();
+
+    for (const TxtEntry &txtEntry : aTxtList)
     {
-        const auto  &name        = txtEntry.mName;
-        const auto  &value       = txtEntry.mValue;
-        const size_t entryLength = name.length() + 1 + value.size();
+        size_t entryLength = txtEntry.mKey.length();
+
+        if (!txtEntry.mIsBooleanAttribute)
+        {
+            entryLength += txtEntry.mValue.size() + sizeof(uint8_t); // for `=` char.
+        }
 
         VerifyOrExit(entryLength <= kMaxTextEntrySize, error = OTBR_ERROR_INVALID_ARGS);
 
         aTxtData.push_back(static_cast<uint8_t>(entryLength));
-        aTxtData.insert(aTxtData.end(), name.begin(), name.end());
-        aTxtData.push_back('=');
-        aTxtData.insert(aTxtData.end(), value.begin(), value.end());
+        aTxtData.insert(aTxtData.end(), txtEntry.mKey.begin(), txtEntry.mKey.end());
+
+        if (!txtEntry.mIsBooleanAttribute)
+        {
+            aTxtData.push_back('=');
+            aTxtData.insert(aTxtData.end(), txtEntry.mValue.begin(), txtEntry.mValue.end());
+        }
+    }
+
+    if (aTxtData.empty())
+    {
+        aTxtData.push_back(0);
     }
 
 exit:
@@ -121,30 +133,39 @@ otbrError Publisher::DecodeTxtData(Publisher::TxtList &aTxtList, const uint8_t *
 {
     otbrError error = OTBR_ERROR_NONE;
 
+    aTxtList.clear();
+
     for (uint16_t r = 0; r < aTxtLength;)
     {
         uint16_t entrySize = aTxtData[r];
         uint16_t keyStart  = r + 1;
         uint16_t entryEnd  = keyStart + entrySize;
         uint16_t keyEnd    = keyStart;
-        uint16_t valStart;
+
+        VerifyOrExit(entryEnd <= aTxtLength, error = OTBR_ERROR_PARSE);
 
         while (keyEnd < entryEnd && aTxtData[keyEnd] != '=')
         {
             keyEnd++;
         }
 
-        valStart = keyEnd;
-        if (valStart < entryEnd && aTxtData[valStart] == '=')
+        if (keyEnd == entryEnd)
         {
-            valStart++;
+            if (keyEnd > keyStart)
+            {
+                // No `=`, treat as a boolean attribute.
+                aTxtList.emplace_back(reinterpret_cast<const char *>(&aTxtData[keyStart]), keyEnd - keyStart);
+            }
+        }
+        else
+        {
+            uint16_t valStart = keyEnd + 1; // To skip over `=`
+
+            aTxtList.emplace_back(reinterpret_cast<const char *>(&aTxtData[keyStart]), keyEnd - keyStart,
+                                  &aTxtData[valStart], entryEnd - valStart);
         }
 
-        aTxtList.emplace_back(reinterpret_cast<const char *>(&aTxtData[keyStart]), keyEnd - keyStart,
-                              &aTxtData[valStart], entryEnd - valStart);
-
         r += entrySize + 1;
-        VerifyOrExit(r <= aTxtLength, error = OTBR_ERROR_PARSE);
     }
 
 exit:
@@ -257,13 +278,6 @@ Publisher::SubTypeList Publisher::SortSubTypeList(SubTypeList aSubTypeList)
     return aSubTypeList;
 }
 
-Publisher::TxtList Publisher::SortTxtList(TxtList aTxtList)
-{
-    std::sort(aTxtList.begin(), aTxtList.end(),
-              [](const TxtEntry &aLhs, const TxtEntry &aRhs) { return aLhs.mName < aRhs.mName; });
-    return aTxtList;
-}
-
 Publisher::AddressList Publisher::SortAddressList(AddressList aAddressList)
 {
     std::sort(aAddressList.begin(), aAddressList.end());
@@ -316,14 +330,14 @@ Publisher::ResultCallback Publisher::HandleDuplicateServiceRegistration(const st
                                                                         const std::string &aType,
                                                                         const SubTypeList &aSubTypeList,
                                                                         uint16_t           aPort,
-                                                                        const TxtList     &aTxtList,
+                                                                        const TxtData     &aTxtData,
                                                                         ResultCallback   &&aCallback)
 {
     ServiceRegistration *serviceReg = FindServiceRegistration(aName, aType);
 
     VerifyOrExit(serviceReg != nullptr);
 
-    if (serviceReg->IsOutdated(aHostName, aName, aType, aSubTypeList, aPort, aTxtList))
+    if (serviceReg->IsOutdated(aHostName, aName, aType, aSubTypeList, aPort, aTxtData))
     {
         otbrLogInfo("Removing existing service %s.%s: outdated", aName.c_str(), aType.c_str());
         RemoveServiceRegistration(aName, aType, OTBR_ERROR_ABORTED);
@@ -352,9 +366,9 @@ exit:
     return std::move(aCallback);
 }
 
-Publisher::ResultCallback Publisher::HandleDuplicateHostRegistration(const std::string             &aName,
-                                                                     const std::vector<Ip6Address> &aAddresses,
-                                                                     ResultCallback               &&aCallback)
+Publisher::ResultCallback Publisher::HandleDuplicateHostRegistration(const std::string &aName,
+                                                                     const AddressList &aAddresses,
+                                                                     ResultCallback   &&aCallback)
 {
     HostRegistration *hostReg = FindHostRegistration(aName);
 
@@ -431,10 +445,10 @@ bool Publisher::ServiceRegistration::IsOutdated(const std::string &aHostName,
                                                 const std::string &aType,
                                                 const SubTypeList &aSubTypeList,
                                                 uint16_t           aPort,
-                                                const TxtList     &aTxtList) const
+                                                const TxtData     &aTxtData) const
 {
     return !(mHostName == aHostName && mName == aName && mType == aType && mSubTypeList == aSubTypeList &&
-             mPort == aPort && mTxtList == aTxtList);
+             mPort == aPort && mTxtData == aTxtData);
 }
 
 void Publisher::ServiceRegistration::Complete(otbrError aError)
@@ -452,7 +466,7 @@ void Publisher::ServiceRegistration::OnComplete(otbrError aError)
     }
 }
 
-bool Publisher::HostRegistration::IsOutdated(const std::string &aName, const std::vector<Ip6Address> &aAddresses) const
+bool Publisher::HostRegistration::IsOutdated(const std::string &aName, const AddressList &aAddresses) const
 {
     return !(mName == aName && mAddresses == aAddresses);
 }
@@ -577,5 +591,4 @@ void Publisher::UpdateHostResolutionEmaLatency(const std::string &aHostName, otb
 }
 
 } // namespace Mdns
-
 } // namespace otbr

@@ -89,11 +89,11 @@ protected:
                                  const std::string &aType,
                                  const SubTypeList &aSubTypeList,
                                  uint16_t           aPort,
-                                 const TxtList     &aTxtList,
+                                 const TxtData     &aTxtData,
                                  ResultCallback   &&aCallback) override;
-    otbrError PublishHostImpl(const std::string             &aName,
-                              const std::vector<Ip6Address> &aAddress,
-                              ResultCallback               &&aCallback) override;
+    otbrError PublishHostImpl(const std::string &aName,
+                              const AddressList &aAddress,
+                              ResultCallback   &&aCallback) override;
     void      OnServiceResolveFailedImpl(const std::string &aType,
                                          const std::string &aInstanceName,
                                          int32_t            aErrorCode) override;
@@ -111,7 +111,7 @@ private:
                                  const std::string &aType,
                                  const SubTypeList &aSubTypeList,
                                  uint16_t           aPort,
-                                 const TxtList     &aTxtList,
+                                 const TxtData     &aTxtData,
                                  ResultCallback   &&aCallback,
                                  DNSServiceRef      aServiceRef,
                                  PublisherMDnsSd   *aPublisher)
@@ -120,7 +120,7 @@ private:
                                   aType,
                                   aSubTypeList,
                                   aPort,
-                                  aTxtList,
+                                  aTxtData,
                                   std::move(aCallback),
                                   aPublisher)
             , mServiceRef(aServiceRef)
@@ -137,11 +137,11 @@ private:
     class DnssdHostRegistration : public HostRegistration
     {
     public:
-        DnssdHostRegistration(const std::string             &aName,
-                              const std::vector<Ip6Address> &aAddresses,
-                              ResultCallback               &&aCallback,
-                              DNSServiceRef                  aServiceRef,
-                              Publisher                     *aPublisher)
+        DnssdHostRegistration(const std::string &aName,
+                              const AddressList &aAddresses,
+                              ResultCallback   &&aCallback,
+                              DNSServiceRef      aServiceRef,
+                              Publisher         *aPublisher)
             : HostRegistration(aName, aAddresses, std::move(aCallback), aPublisher)
             , mServiceRef(aServiceRef)
             , mRecordRefMap()
@@ -191,7 +191,7 @@ private:
             : ServiceRef()
             , mSubscription(&aSubscription)
             , mInstanceName(std::move(aInstanceName))
-            , mTypeEndWithDot(std::move(aType))
+            , mType(std::move(aType))
             , mDomain(std::move(aDomain))
             , mNetifIndex(aNetifIndex)
         {
@@ -238,7 +238,7 @@ private:
 
         ServiceSubscription   *mSubscription;
         std::string            mInstanceName;
-        std::string            mTypeEndWithDot;
+        std::string            mType;
         std::string            mDomain;
         uint32_t               mNetifIndex;
         DiscoveredInstanceInfo mInstanceInfo;
